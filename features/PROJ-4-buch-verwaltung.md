@@ -1,8 +1,8 @@
 # PROJ-4: Buch-Verwaltung (Admin-Panel)
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-02-16
-**Last Updated:** 2026-02-16
+**Last Updated:** 2026-02-17
 
 ## Dependencies
 - Requires: PROJ-1 (Bücherliste & Display) - Datenmodell muss definiert sein
@@ -44,7 +44,53 @@
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Component Structure
+```
+/admin                    (geschützt durch bestehende Middleware)
+└── AdminDashboard (erweitert)
+    ├── AdminHeader (bestehend)
+    ├── AdminNav (NEU - Tabs)
+    │   ├── "Bücher verwalten"
+    │   └── "CSV Import" (bestehend)
+    │
+    └── BooksAdminSection (NEU)
+        ├── Toolbar (Suchfeld + "Neues Buch"-Button)
+        ├── BooksTable (sortierbar, paginiert ab 50)
+        │   └── pro Zeile: Bild | Titel | Autor | Genre | Bewertung | Bearbeiten | Löschen
+        │
+        ├── BookFormSheet (Slide-in Panel für Neu/Bearbeiten)
+        │   ├── Titel (Pflicht), Autor (Pflicht)
+        │   ├── Beschreibung, Genre (Dropdown), Bewertung (🤘 1-5)
+        │   ├── Bild: Upload ODER URL
+        │   └── Amazon-Link
+        │
+        └── DeleteConfirmDialog ("Bist du sicher?")
+```
+
+### Bild-Upload
+- Supabase Storage Bucket: `book-covers` (öffentlich lesbar)
+- Erlaubte Formate: JPG, PNG, WebP (max. 2MB)
+- Beim Löschen eines Buchs → Bild wird aus Storage entfernt
+- Zwei Optionen: Datei hochladen ODER externe URL eingeben
+
+### Tech Decisions
+- **Sheet statt eigene Seite** — Kein Seitenwechsel, schneller Workflow
+- **Supabase Storage** — Bereits verfügbar, kostenlos bis 1GB, öffentliche URLs
+- **Tab-Navigation** — Admin-Dashboard bleibt übersichtlich
+- **Sonner (Toast)** — Kurze Erfolgsmeldungen ohne Flow-Unterbrechung
+- **react-hook-form + Zod** — Robuste Formular-Validierung (bereits installiert)
+
+### Dependencies
+Keine neuen Pakete nötig. Alles bereits installiert.
+
+### Implementation Flow
+1. Supabase Storage Bucket `book-covers` erstellen
+2. AdminNav mit Tabs (Bücher / CSV Import)
+3. BooksTable mit Suche + Sortierung + Pagination
+4. BookFormSheet (Neu/Bearbeiten) mit Bild-Upload
+5. Löschen mit Bestätigungsdialog + Storage-Cleanup
+6. Toast-Notifications
 
 ## QA Test Results
 _To be added by /qa_

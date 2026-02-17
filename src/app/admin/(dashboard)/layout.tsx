@@ -1,4 +1,5 @@
 import { AdminHeader } from "@/components/admin-header";
+import { Toaster } from "sonner";
 
 export const metadata = {
   title: "Admin | Buchempfehlungen",
@@ -16,6 +17,7 @@ export default function AdminDashboardLayout({
       <main className="flex-1 container mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {children}
       </main>
+      <Toaster richColors position="bottom-right" />
     </div>
   );
 }
