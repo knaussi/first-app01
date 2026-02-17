@@ -1,6 +1,6 @@
 # PROJ-3: CSV Import & Admin-Auth
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-02-16
 **Last Updated:** 2026-02-16
 
@@ -46,7 +46,73 @@
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Component Structure
+```
+/admin/login         (öffentlich zugänglich)
+└── LoginPage
+    ├── E-Mail Feld
+    ├── Passwort Feld
+    └── "Einloggen" Button
+
+/admin               (nur nach Login zugänglich)
+└── AdminDashboard
+    ├── AdminHeader
+    │   ├── Titel: "Admin"
+    │   └── Logout Button
+    │
+    └── CsvImportSection
+        ├── Step 1: Upload
+        │   ├── Datei-Upload-Bereich (Drag & Drop oder Klick)
+        │   └── Erwartetes Format-Info
+        │
+        ├── Step 2: Vorschau (nach Dateiauswahl)
+        │   ├── Vorschau-Tabelle (erste 5 Zeilen)
+        │   ├── Fehler-Liste (ungültige Zeilen)
+        │   ├── Duplikat-Dialog: Überschreiben / Überspringen
+        │   └── "Importieren"-Button
+        │
+        └── Step 3: Ergebnis (nach Import)
+            ├── "X Bücher importiert"
+            ├── "Y Zeilen übersprungen"
+            └── "Neuen Import starten" Button
+```
+
+### Security
+- Middleware schützt alle `/admin/*` Routen serverseitig
+- Ohne gültige Session → Redirect zu `/admin/login`
+- Supabase Auth (E-Mail/Passwort), kein Registrierungsformular
+- RLS: INSERT/UPDATE/DELETE nur für authentifizierte Nutzer (bereits eingerichtet)
+
+### CSV Import Flow
+1. Nutzer wählt .csv Datei → Browser parst client-side
+2. Validierung: Spalten, Pflichtfelder, Bewertung 1-5
+3. Vorschau: Erste 5 Zeilen + Fehler-Liste
+4. Duplikate prüfen (Titel + Autor gegen DB)
+5. Nutzer bestätigt → Batch-Insert (50er Batches) in Supabase
+6. Ergebnis-Zusammenfassung
+
+### Tech Decisions
+- **CSV-Parsing im Browser** — Kein Server-Upload nötig, Daten gehen direkt in DB
+- **Supabase Auth** — Bereits als Dependency, nahtlos mit RLS
+- **Next.js Middleware** — Sicherster Schutz, läuft vor jeder Anfrage serverseitig
+- **3-Schritt-Prozess** — Verhindert versehentliche Imports durch Vorschau
+- **papaparse** — Bewährtes CSV-Parsing (UTF-8, robust, schnell)
+
+### Dependencies
+- `papaparse` + `@types/papaparse` — CSV-Parsing im Browser
+- `@supabase/ssr` — Serverseitige Auth für Middleware
+
+### Implementation Flow
+1. `papaparse` + `@supabase/ssr` installieren
+2. Supabase Auth: Server/Browser Clients aufsetzen
+3. Admin-Account in Supabase anlegen
+4. Middleware für `/admin/*` Schutz
+5. Login-Seite `/admin/login`
+6. Admin Layout mit Header + Logout
+7. CSV Upload + Parser + Validierung
+8. Vorschau-Tabelle + Duplikat-Dialog
+9. Batch-Import + Fortschritt + Ergebnis
 
 ## QA Test Results
 _To be added by /qa_
