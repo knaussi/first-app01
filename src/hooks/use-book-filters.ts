@@ -152,7 +152,7 @@ export function useBookFilters(books: Book[]): UseBookFiltersReturn {
     // Genre filter
     if (urlGenres.length > 0) {
       result = result.filter(
-        (book) => book.genre && urlGenres.includes(book.genre as Genre)
+        (book) => book.genres && book.genres.some((g) => urlGenres.includes(g as Genre))
       );
     }
 

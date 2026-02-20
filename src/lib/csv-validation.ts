@@ -14,14 +14,14 @@ export const csvRowSchema = z.object({
   titel: z.string().min(1, "Titel ist ein Pflichtfeld"),
   autor: z.string().min(1, "Autor ist ein Pflichtfeld"),
   beschreibung: z.string().optional().default(""),
-  genre: z.string().optional().default(""),
+  genre: z.string().optional().default(""), // kommagetrennte Genres
   bewertung: z.coerce
     .number()
     .int()
     .min(1, "Bewertung muss zwischen 1 und 5 sein")
     .max(5, "Bewertung muss zwischen 1 und 5 sein"),
-  bild_url: z.string().optional().default(""),
-  amazon_link: z.string().optional().default(""),
+  bild_url: z.string().refine((val) => { if (!val) return true; try { new URL(val); return true; } catch { return false; } }, { message: "Ungültige URL" }).optional().default(""),
+  amazon_link: z.string().refine((val) => { if (!val) return true; try { new URL(val); return true; } catch { return false; } }, { message: "Ungültige URL" }).optional().default(""),
 });
 
 export type CsvRow = z.infer<typeof csvRowSchema>;
@@ -51,7 +51,9 @@ export function mapCsvRowToBook(row: CsvRow) {
     title: row.titel,
     author: row.autor,
     description: row.beschreibung || null,
-    genre: row.genre || null,
+    genres: row.genre
+      ? row.genre.split(",").map((g) => g.trim()).filter(Boolean)
+      : null,
     rating: row.bewertung,
     image_url: row.bild_url || null,
     amazon_link: row.amazon_link || null,

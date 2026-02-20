@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 38 100% 98%;
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
@@ -81,5 +81,9 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-open-sans), sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-ubuntu), sans-serif;
   }
 }

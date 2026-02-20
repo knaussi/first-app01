@@ -98,7 +98,7 @@ export function BooksTable() {
         (book) =>
           book.title.toLowerCase().includes(query) ||
           book.author.toLowerCase().includes(query) ||
-          (book.genre && book.genre.toLowerCase().includes(query))
+          (book.genres && book.genres.join(" ").toLowerCase().includes(query))
       );
     }
 
@@ -328,8 +328,12 @@ export function BooksTable() {
                       {book.author}
                     </TableCell>
                     <TableCell className="hidden md:table-cell">
-                      {book.genre ? (
-                        <Badge variant="secondary">{book.genre}</Badge>
+                      {book.genres && book.genres.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {book.genres.map((g) => (
+                            <Badge key={g} variant="secondary" className="text-xs">{g}</Badge>
+                          ))}
+                        </div>
                       ) : (
                         <span className="text-muted-foreground text-sm">
                           &ndash;

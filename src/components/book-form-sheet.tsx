@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { toast } from "sonner";
 import { Book } from "@/lib/types";
+import { GENRES } from "@/hooks/use-book-filters";
 import {
   Sheet,
   SheetContent,
@@ -25,28 +26,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { RockRatingInput } from "@/components/rock-rating-input";
 import { Loader2, Upload, X, ImageIcon } from "lucide-react";
 import Image from "next/image";
-
-const GENRES = [
-  "AlltimeFav",
-  "Biografie",
-  "Empfehlung",
-  "English",
-  "Kreativ",
-  "Kunst",
-  "Sachbuch",
-  "Unterhaltung",
-  "Sport",
-] as const;
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
@@ -55,10 +38,10 @@ const bookFormSchema = z.object({
   title: z.string().min(1, "Titel ist ein Pflichtfeld"),
   author: z.string().min(1, "Autor ist ein Pflichtfeld"),
   description: z.string().optional(),
-  genre: z.string().optional(),
+  genres: z.array(z.string()),
   rating: z.number().int().min(0).max(5),
-  image_url: z.string().optional(),
-  amazon_link: z.string().optional(),
+  image_url: z.string().refine((val) => { if (!val) return true; try { new URL(val); return true; } catch { return false; } }, { message: "Muss eine gültige URL sein" }).optional(),
+  amazon_link: z.string().refine((val) => { if (!val) return true; try { new URL(val); return true; } catch { return false; } }, { message: "Muss eine gültige URL sein" }).optional(),
 });
 
 type BookFormValues = z.infer<typeof bookFormSchema>;
@@ -81,6 +64,7 @@ export function BookFormSheet({
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [useUpload, setUseUpload] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadedStoragePath = useRef<string | null>(null);
 
   const isEditing = !!book;
 
@@ -90,7 +74,7 @@ export function BookFormSheet({
       title: "",
       author: "",
       description: "",
-      genre: "",
+      genres: [],
       rating: 0,
       image_url: "",
       amazon_link: "",
@@ -100,12 +84,13 @@ export function BookFormSheet({
   // Reset form when book changes or sheet opens
   useEffect(() => {
     if (open) {
+      uploadedStoragePath.current = null;
       if (book) {
         form.reset({
           title: book.title,
           author: book.author,
           description: book.description ?? "",
-          genre: book.genre ?? "",
+          genres: book.genres ?? [],
           rating: book.rating,
           image_url: book.image_url ?? "",
           amazon_link: book.amazon_link ?? "",
@@ -117,7 +102,7 @@ export function BookFormSheet({
           title: "",
           author: "",
           description: "",
-          genre: "",
+          genres: [],
           rating: 0,
           image_url: "",
           amazon_link: "",
@@ -128,7 +113,7 @@ export function BookFormSheet({
     }
   }, [open, book, form]);
 
-  async function handleImageUpload(file: File): Promise<string | null> {
+  async function handleImageUpload(file: File): Promise<{ publicUrl: string; fileName: string } | null> {
     if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
       toast.error("Nur JPG, PNG und WebP Dateien sind erlaubt.");
       return null;
@@ -162,7 +147,7 @@ export function BookFormSheet({
         data: { publicUrl },
       } = supabase.storage.from("book-covers").getPublicUrl(fileName);
 
-      return publicUrl;
+      return { publicUrl, fileName };
     } catch {
       toast.error("Ein Fehler ist beim Upload aufgetreten.");
       return null;
@@ -175,26 +160,37 @@ export function BookFormSheet({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Show local preview immediately
+    const previousUploadedPath = uploadedStoragePath.current;
     const localUrl = URL.createObjectURL(file);
     setImagePreview(localUrl);
 
-    const publicUrl = await handleImageUpload(file);
-    if (publicUrl) {
-      form.setValue("image_url", publicUrl);
-      setImagePreview(publicUrl);
+    const result = await handleImageUpload(file);
+    URL.revokeObjectURL(localUrl);
+
+    if (result) {
+      if (previousUploadedPath) {
+        const supabase = createSupabaseBrowserClient();
+        supabase.storage.from("book-covers").remove([previousUploadedPath]);
+      }
+      uploadedStoragePath.current = result.fileName;
+      form.setValue("image_url", result.publicUrl);
+      setImagePreview(result.publicUrl);
       toast.success("Bild erfolgreich hochgeladen.");
     } else {
       setImagePreview(book?.image_url ?? null);
     }
 
-    // Reset file input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   }
 
-  function removeImage() {
+  async function removeImage() {
+    if (uploadedStoragePath.current) {
+      const supabase = createSupabaseBrowserClient();
+      await supabase.storage.from("book-covers").remove([uploadedStoragePath.current]);
+      uploadedStoragePath.current = null;
+    }
     form.setValue("image_url", "");
     setImagePreview(null);
     if (fileInputRef.current) {
@@ -212,7 +208,7 @@ export function BookFormSheet({
         title: values.title,
         author: values.author,
         description: values.description || null,
-        genre: values.genre || null,
+        genres: values.genres.length > 0 ? values.genres : null,
         rating: values.rating,
         image_url: values.image_url || null,
         amazon_link: values.amazon_link || null,
@@ -331,31 +327,49 @@ export function BookFormSheet({
               )}
             />
 
-            {/* Genre */}
+            {/* Genres - Multi-select badges */}
             <FormField
               control={form.control}
-              name="genre"
+              name="genres"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Genre</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={saving}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Genre auswaehlen" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {GENRES.map((genre) => (
-                        <SelectItem key={genre} value={genre}>
-                          {genre}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <div className="flex flex-wrap gap-2">
+                      {GENRES.map((genre) => {
+                        const isSelected = field.value.includes(genre);
+                        return (
+                          <Badge
+                            key={genre}
+                            variant={isSelected ? "default" : "outline"}
+                            className="cursor-pointer select-none transition-colors hover:bg-primary/80 hover:text-primary-foreground"
+                            onClick={() => {
+                              if (saving) return;
+                              const updated = isSelected
+                                ? field.value.filter((g) => g !== genre)
+                                : [...field.value, genre];
+                              field.onChange(updated);
+                            }}
+                            role="checkbox"
+                            aria-checked={isSelected}
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                if (saving) return;
+                                const updated = isSelected
+                                  ? field.value.filter((g) => g !== genre)
+                                  : [...field.value, genre];
+                                field.onChange(updated);
+                              }
+                            }}
+                          >
+                            {genre}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -382,9 +396,8 @@ export function BookFormSheet({
 
             {/* Image */}
             <div className="space-y-3">
-              <FormLabel>Cover-Bild</FormLabel>
+              <p className="text-sm font-medium leading-none">Cover-Bild</p>
 
-              {/* Toggle between upload and URL */}
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -464,7 +477,6 @@ export function BookFormSheet({
                 />
               )}
 
-              {/* Image Preview */}
               {imagePreview && (
                 <div className="relative inline-block">
                   <div className="relative w-20 h-28 rounded border overflow-hidden bg-muted">

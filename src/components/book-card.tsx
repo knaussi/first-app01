@@ -1,8 +1,5 @@
 import Image from "next/image";
-import { ExternalLink } from "lucide-react";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { RockRating } from "@/components/rock-rating";
 import { Book } from "@/lib/types";
 
@@ -16,8 +13,8 @@ function truncate(text: string, maxLength: number): string {
 }
 
 export function BookCard({ book }: BookCardProps) {
-  return (
-    <Card className="flex flex-col overflow-hidden h-full">
+  const cardContent = (
+    <Card className="flex flex-col overflow-hidden h-full bg-background border-gray-200">
       {/* Cover Image */}
       <div className="relative aspect-[2/3] w-full bg-muted">
         {book.image_url ? (
@@ -53,44 +50,45 @@ export function BookCard({ book }: BookCardProps) {
 
       {/* Content */}
       <CardHeader className="pb-2">
-        <h3 className="text-lg font-semibold leading-tight line-clamp-2">
+        <h3 className="text-xl font-semibold leading-tight line-clamp-2">
           {book.title}
         </h3>
-        <p className="text-sm text-muted-foreground">{book.author}</p>
+        <p className="text-sm text-foreground">{book.author}</p>
       </CardHeader>
 
       <CardContent className="flex-1 space-y-3">
-        {book.genre && (
-          <Badge variant="secondary" className="text-xs">
-            {book.genre}
-          </Badge>
+        {book.genres && book.genres.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {book.genres.map((g) => (
+              <span key={g} className="text-xs text-muted-foreground">{g}</span>
+            ))}
+          </div>
         )}
 
         {book.description && (
-          <p className="text-sm text-muted-foreground leading-relaxed">
+          <p className="text-sm text-foreground leading-relaxed !mt-5">
             {truncate(book.description, 150)}
           </p>
         )}
 
         <RockRating rating={book.rating} />
       </CardContent>
-
-      {/* Amazon Link */}
-      {book.amazon_link && (
-        <CardFooter>
-          <Button asChild className="w-full" size="sm">
-            <a
-              href={book.amazon_link}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`${book.title} bei Amazon kaufen`}
-            >
-              <ExternalLink className="mr-1 h-4 w-4" />
-              Bei Amazon kaufen
-            </a>
-          </Button>
-        </CardFooter>
-      )}
     </Card>
   );
+
+  if (book.amazon_link) {
+    return (
+      <a
+        href={book.amazon_link}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`${book.title} bei Amazon kaufen`}
+        className="block h-full hover:brightness-95 transition-all"
+      >
+        {cardContent}
+      </a>
+    );
+  }
+
+  return cardContent;
 }
